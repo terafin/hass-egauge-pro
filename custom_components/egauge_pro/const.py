@@ -29,29 +29,11 @@ CONF_USE_SSL = "use_ssl"
 CONF_VERIFY_SSL = "verify_ssl"
 CONF_INVERT_SENSORS = "invert_sensors"
 
-# Update cadences
-SCAN_INTERVAL = timedelta(seconds=30)  # instantaneous power
-HISTORICAL_REFRESH = timedelta(minutes=5)  # period energy buckets change slowly
+# Update cadence
+SCAN_INTERVAL = timedelta(seconds=30)  # instantaneous power + cumulative counters
 
 # Watt-seconds -> kWh
 WS_TO_KWH = 1.0 / 3_600_000.0
-
-# Historical energy buckets: bucket key -> how far back the window starts.
-# "today" is special-cased to local-midnight in the coordinator.
-TODAY = "todays"
-DAILY = "daily"
-WEEKLY = "weekly"
-MONTHLY = "monthly"
-YEARLY = "yearly"
-
-# Order matters only for stable entity creation.
-BUCKET_WINDOWS: dict[str, timedelta | None] = {
-    TODAY: None,  # start_of_local_day
-    DAILY: timedelta(days=1),
-    WEEKLY: timedelta(days=7),
-    MONTHLY: timedelta(days=30),
-    YEARLY: timedelta(days=365),
-}
 
 # Instantaneous register type -> HA device class / unit. POWER is by far the
 # common case; the rest are supported so the integration is general.
@@ -73,5 +55,5 @@ INSTANTANEOUS_UNIT: dict[RegisterType, str] = {
     RegisterType.PRESSURE: UnitOfPressure.PA,
 }
 
-# Only POWER registers get the energy buckets.
+# Only POWER registers get the cumulative energy counter.
 ENERGY_UNIT = UnitOfEnergy.KILO_WATT_HOUR

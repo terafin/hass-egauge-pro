@@ -4,6 +4,36 @@ Goal: cut over from the old `neggert/hass-egauge` custom integration (domain
 `egauge`) to `egauge_pro` **without changing any `sensor.egauge_*` entity_id**, so
 recorder history and Energy-dashboard wiring carry over untouched.
 
+## Sensor model (v0.2.0): cumulative energy counters, no period buckets
+
+`egauge_pro` **no longer reproduces** per-register `todays/daily/weekly/monthly/yearly`
+kWh bucket sensors. Those were ~1,700 redundant sensors with reset-ambiguity bugs.
+Instead, each **power** register exposes one **lifetime cumulative energy counter**:
+
+| | entity_id pattern | class / state_class / unit |
+|---|---|---|
+| New energy counter | **`sensor.egauge_<register>_energy`** | `energy` / `total_increasing` / `kWh` |
+| Instantaneous power (unchanged) | `sensor.egauge_<register>` | `power` / `measurement` / `W` |
+
+`<register>` is the HA-slugified register name (lowercase; spaces and non-alphanumerics
+→ `_`), matching how the instantaneous sensors already slug. Configured sign inversion
+is applied to the counter too (it flips a generation register's negative-counting total
+into a positive, increasing one). Only POWER registers get a counter.
+
+HA long-term statistics + the Energy dashboard derive daily/monthly/yearly natively from
+a `total_increasing` counter, and `utility_meter` helpers cover any explicit "today's X"
+cycle sensor an automation still needs.
+
+**Cutover for this model change (handled by Frigg, post-release):**
+1. Point the ~12 Energy-dashboard inputs at the new `sensor.egauge_<register>_energy`
+   counters (was the old `sensor.egauge_todays_*` buckets).
+2. Migrate long-term statistics: rename the old bucket `statistic_id`s → the new counter
+   ids so history stays continuous.
+3. Add `utility_meter` helpers for the few automations that need a resetting "today's X".
+
+> The old `egauge` → `egauge_pro` cutover below is unchanged for the instantaneous
+> sensors; the bucket rows in its snapshot/verify steps no longer apply under v0.2.0.
+
 ## Why entity_ids survive
 
 Entity_ids are derived from the **device name** (`eGauge`) + the **register name**,
