@@ -20,6 +20,28 @@ Instead, each **power** register exposes one **lifetime cumulative energy counte
 is applied to the counter too (it flips a generation register's negative-counting total
 into a positive, increasing one). Only POWER registers get a counter.
 
+### Directional Energy-dashboard flows
+
+The HA Energy panel's grid/solar/battery sources bind to these flows. They are
+ordinary POWER registers on the device (Justin's eGauge defines them), so they get
+counters automatically under the same pattern — **no special-case code**. The
+old→new statistic-id remap:
+
+| Energy panel source | old (v0.1.0 bucket) | new counter |
+|---|---|---|
+| Grid consumed | `sensor.egauge_todays_from_grid` | `sensor.egauge_from_grid_energy` |
+| Grid returned | `sensor.egauge_todays_to_grid` | `sensor.egauge_to_grid_energy` |
+| Solar production | `sensor.egauge_todays_solar` | `sensor.egauge_solar_energy` |
+| Battery out | `sensor.egauge_todays_from_batteries` | `sensor.egauge_from_batteries_energy` |
+| Battery in | `sensor.egauge_todays_to_batteries` | `sensor.egauge_to_batteries_energy` |
+
+These are the sign-sensitive ones — whichever read negative raw must be in the
+inverted-registers option so their counters increase positively (the Energy panel
+requires `total_increasing`). PR #2's auto-detect surfaces the candidates.
+(If any register's display name differs from the slug above — e.g. "From Grid" vs
+`from_grid` — the slug is identical either way; confirm at smoke that all five
+`sensor.egauge_*_energy` appear.)
+
 HA long-term statistics + the Energy dashboard derive daily/monthly/yearly natively from
 a `total_increasing` counter, and `utility_meter` helpers cover any explicit "today's X"
 cycle sensor an automation still needs.
