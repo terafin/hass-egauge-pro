@@ -31,7 +31,7 @@ entity_id ⇒ continuous history.
 2. Delete `/config/custom_components/egauge/`.
 3. Install **eGauge Pro** (HACS), restart HA.
 4. **Add Integration → eGauge Pro** with the existing connection details:
-   - Host `10.0.90.20`, **HTTPS off**, Verify SSL off, Username `terafin`, password
+   - Host `<your-eGauge-IP>`, **HTTPS off**, Verify SSL off, Username `<your-username>`, password
      (from the old config / 1Password).
 5. Open the integration's **Configure** and re-select the inverted registers
    (preserved from the old `invert_sensors` option):
