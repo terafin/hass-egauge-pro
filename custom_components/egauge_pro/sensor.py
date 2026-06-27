@@ -39,7 +39,7 @@ async def async_setup_entry(
                 EgaugeInstantaneousSensor(coordinator, name, info.type, invert)
             )
         if info.type is RegisterType.POWER:
-            entities.append(EgaugeEnergyCounterSensor(coordinator, name, invert))
+            entities.append(EgaugeEnergyCounterSensor(coordinator, name))
     async_add_entities(entities)
 
 
@@ -98,27 +98,34 @@ class EgaugeEnergyCounterSensor(EgaugeProEntity, SensorEntity):
         self,
         coordinator: EgaugeProCoordinator,
         register: str,
-        invert: list[str],
     ) -> None:
         """Initialize a cumulative energy counter."""
         super().__init__(coordinator)
         self._register = register
-        self._invert = register in invert
         self._attr_name = f"{register} energy"
         self._attr_unique_id = f"{coordinator.serial_number}-{register}-energy"
 
     @property
     def native_value(self) -> float | None:
-        """Return the (optionally inverted) lifetime energy in kWh.
+        """Return the lifetime energy in kWh as a positive, increasing total.
 
-        The device counter is cumulative watt-seconds; inversion flips a
-        generation register (negative-counting) to a positive, increasing total.
+        These counters back ``total_increasing`` energy flows (grid/solar/battery
+        directions, per-circuit consumption), each of which accumulates in one
+        direction — so the meaningful value is the magnitude; direction is encoded
+        by the register identity (``from_grid`` vs ``to_grid`` etc.).
+
+        We take ``abs()`` rather than the user's per-register invert flag: the
+        device can report a register's cumulative counter with the OPPOSITE
+        polarity to its instantaneous power (e.g. solar reads power +W but counts
+        energy −W·s), so a single power-tuned sign can't keep both correct, and a
+        negative-trending value is invalid for ``total_increasing`` (HA reads each
+        decrease as a reset). The invert flag still governs the instantaneous
+        power sensor.
         """
         value = self.coordinator.data.counters.get(self._register)
         if value is None:
             return None
-        kwh = value * WS_TO_KWH
-        return -kwh if self._invert else kwh
+        return abs(value) * WS_TO_KWH
 
     @property
     def available(self) -> bool:
