@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "eGauge Pro",
+        "data": {
+          "host": "Host or IP",
+          "username": "Username",
+          "password": "Password",
+          "use_ssl": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_auth": "Invalid authentication",
+      "invalid_host": "Invalid host — use a bare hostname or IP, no protocol or port"
+    },
+    "abort": {
+      "already_configured": "This eGauge is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Inverted registers",
+        "description": "Select registers whose sign should be flipped (e.g. generation vs consumption).",
+        "data": {
+          "invert_sensors": "Inverted registers"
+        }
+      }
+    }
+  }
+}
