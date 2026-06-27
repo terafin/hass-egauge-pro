@@ -10,6 +10,17 @@
           "use_ssl": "Use HTTPS",
           "verify_ssl": "Verify SSL certificate"
         }
+      },
+      "reconfigure": {
+        "title": "eGauge Pro",
+        "description": "Update the connection details for this eGauge. The device serial must still match.",
+        "data": {
+          "host": "Host or IP",
+          "username": "Username",
+          "password": "Password",
+          "use_ssl": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate"
+        }
       }
     },
     "error": {
@@ -18,14 +29,30 @@
       "invalid_host": "Invalid host — use a bare hostname or IP, no protocol or port"
     },
     "abort": {
-      "already_configured": "This eGauge is already configured"
+      "already_configured": "This eGauge is already configured",
+      "wrong_device": "Those credentials are for a different eGauge (serial number mismatch). Reconfigure must point at the same device.",
+      "reconfigure_successful": "Connection details updated."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Inverted registers",
-        "description": "Select registers whose sign should be flipped (e.g. generation vs consumption).",
+        "menu_options": {
+          "manual": "Select registers manually",
+          "auto_detect": "Auto-detect from current readings"
+        }
+      },
+      "manual": {
+        "title": "Inverted registers",
+        "description": "Select registers whose sign should be flipped (e.g. generation vs consumption). Type to filter; selected registers show as removable chips.",
+        "data": {
+          "invert_sensors": "Inverted registers"
+        }
+      },
+      "auto_detect": {
+        "title": "Auto-detected inverted registers",
+        "description": "Power registers currently reading negative are pre-selected (along with your existing choices). Review and confirm — adjust the chips as needed.",
         "data": {
           "invert_sensors": "Inverted registers"
         }
