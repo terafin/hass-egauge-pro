@@ -11,6 +11,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util import slugify
 
 from .const import (
     CONF_INVERT_SENSORS,
@@ -62,6 +63,7 @@ class EgaugeInstantaneousSensor(EgaugeProEntity, SensorEntity):
         self._invert = register in invert
         self._attr_name = register
         self._attr_unique_id = f"{coordinator.serial_number}-{register}"
+        self._attr_suggested_object_id = f"egauge_{slugify(register)}"
         self._attr_device_class = INSTANTANEOUS_DEVICE_CLASS[reg_type]
         self._attr_native_unit_of_measurement = INSTANTANEOUS_UNIT[reg_type]
 
@@ -104,6 +106,7 @@ class EgaugeEnergyCounterSensor(EgaugeProEntity, SensorEntity):
         self._register = register
         self._attr_name = f"{register} energy"
         self._attr_unique_id = f"{coordinator.serial_number}-{register}-energy"
+        self._attr_suggested_object_id = f"egauge_{slugify(register)}_energy"
 
     @property
     def native_value(self) -> float | None:
