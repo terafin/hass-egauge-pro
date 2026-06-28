@@ -15,6 +15,7 @@ from homeassistant.util import slugify
 
 from .const import (
     CONF_INVERT_SENSORS,
+    CONF_SKIP_ENERGY_COUNTERS,
     ENERGY_UNIT,
     INSTANTANEOUS_DEVICE_CLASS,
     INSTANTANEOUS_UNIT,
@@ -32,6 +33,7 @@ async def async_setup_entry(
     """Create instantaneous sensors for every register + a cumulative energy counter for power."""
     coordinator = entry.runtime_data
     invert: list[str] = entry.options.get(CONF_INVERT_SENSORS, [])
+    skip_counters: list[str] = entry.options.get(CONF_SKIP_ENERGY_COUNTERS, [])
 
     entities: list[SensorEntity] = []
     for name, info in coordinator.register_info.items():
@@ -39,7 +41,9 @@ async def async_setup_entry(
             entities.append(
                 EgaugeInstantaneousSensor(coordinator, name, info.type, invert)
             )
-        if info.type is RegisterType.POWER:
+        # Net/bidirectional registers oscillate -> invalid for total_increasing;
+        # operator excludes them via the energy-counter options step.
+        if info.type is RegisterType.POWER and name not in skip_counters:
             entities.append(EgaugeEnergyCounterSensor(coordinator, name))
     async_add_entities(entities)
 

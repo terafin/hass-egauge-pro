@@ -28,6 +28,7 @@ from .const import (
     CONF_HOST,
     CONF_INVERT_SENSORS,
     CONF_PASSWORD,
+    CONF_SKIP_ENERGY_COUNTERS,
     CONF_USE_SSL,
     CONF_USERNAME,
     CONF_VERIFY_SSL,
@@ -137,9 +138,9 @@ class EgaugeProOptionsFlow(OptionsFlow):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Offer manual selection or auto-detect of inverted registers."""
+        """Offer invert-list config (manual / auto-detect) or the energy-counter set."""
         return self.async_show_menu(
-            step_id="init", menu_options=["manual", "auto_detect"]
+            step_id="init", menu_options=["manual", "auto_detect", "energy_counters"]
         )
 
     async def async_step_manual(
@@ -147,7 +148,9 @@ class EgaugeProOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Pick inverted registers from a searchable chip multi-select."""
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            return self.async_create_entry(
+                data={**self.config_entry.options, **user_input}
+            )
         current = self.config_entry.options.get(CONF_INVERT_SENSORS, [])
         return self.async_show_form(
             step_id="manual", data_schema=self._invert_schema(current)
@@ -158,9 +161,57 @@ class EgaugeProOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Pre-select registers currently reading negative for the user to confirm."""
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            return self.async_create_entry(
+                data={**self.config_entry.options, **user_input}
+            )
         return self.async_show_form(
             step_id="auto_detect", data_schema=self._invert_schema(self._suggested())
+        )
+
+    async def async_step_energy_counters(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose which power registers to EXCLUDE from energy counters.
+
+        Net / bidirectional registers (net grid/solar/batteries, total usage)
+        have an oscillating cumulative counter — invalid for ``total_increasing``
+        — so they belong here. Default empty = every power register gets a
+        counter (unchanged behaviour).
+        """
+        if user_input is not None:
+            return self.async_create_entry(
+                data={**self.config_entry.options, **user_input}
+            )
+        current = self.config_entry.options.get(CONF_SKIP_ENERGY_COUNTERS, [])
+        return self.async_show_form(
+            step_id="energy_counters", data_schema=self._skip_counter_schema(current)
+        )
+
+    def _skip_counter_schema(self, default: list[str]) -> vol.Schema:
+        """Multi-select of power registers to exclude from energy counters."""
+        coordinator = self.config_entry.runtime_data
+        power = [
+            name
+            for name, info in coordinator.register_info.items()
+            if info.type is RegisterType.POWER
+        ]
+        options = [
+            SelectOptionDict(value=name, label=self._label(name)) for name in power
+        ]
+        return vol.Schema(
+            {
+                vol.Optional(
+                    CONF_SKIP_ENERGY_COUNTERS, default=default
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=options,
+                        multiple=True,
+                        mode=SelectSelectorMode.DROPDOWN,
+                        sort=False,
+                        custom_value=False,
+                    )
+                )
+            }
         )
 
     def _invert_schema(self, default: list[str]) -> vol.Schema:
