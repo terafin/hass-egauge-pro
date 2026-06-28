@@ -28,6 +28,7 @@ CONF_PASSWORD = "password"  # noqa: S105
 CONF_USE_SSL = "use_ssl"
 CONF_VERIFY_SSL = "verify_ssl"
 CONF_INVERT_SENSORS = "invert_sensors"
+CONF_SKIP_ENERGY_COUNTERS = "skip_energy_counters"
 
 # Update cadence
 SCAN_INTERVAL = timedelta(seconds=30)  # instantaneous power + cumulative counters

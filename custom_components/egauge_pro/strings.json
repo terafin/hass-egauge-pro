@@ -37,10 +37,11 @@
   "options": {
     "step": {
       "init": {
-        "title": "Inverted registers",
+        "title": "eGauge Pro options",
         "menu_options": {
-          "manual": "Select registers manually",
-          "auto_detect": "Auto-detect from current readings"
+          "manual": "Inverted registers — select manually",
+          "auto_detect": "Inverted registers — auto-detect from readings",
+          "energy_counters": "Energy counters — exclude registers"
         }
       },
       "manual": {
@@ -55,6 +56,13 @@
         "description": "Power registers currently reading negative are pre-selected (along with your existing choices). Review and confirm — adjust the chips as needed.",
         "data": {
           "invert_sensors": "Inverted registers"
+        }
+      },
+      "energy_counters": {
+        "title": "Exclude registers from energy counters",
+        "description": "Select power registers to EXCLUDE from the cumulative energy (kWh) counters. Net/bidirectional registers (net grid, net solar, batteries, total usage) oscillate, which is invalid for an increasing energy total — exclude those. Leave empty for the default (every power register gets a counter). Does not affect instantaneous power sensors.",
+        "data": {
+          "skip_energy_counters": "Registers to exclude from energy counters"
         }
       }
     }
