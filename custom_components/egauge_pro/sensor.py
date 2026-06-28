@@ -11,6 +11,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util import slugify
 
 from .const import (
     CONF_INVERT_SENSORS,
@@ -80,6 +81,18 @@ class EgaugeInstantaneousSensor(EgaugeProEntity, SensorEntity):
             super().available and self._register in self.coordinator.data.measurements
         )
 
+    @property
+    def suggested_object_id(self) -> str | None:
+        """Keep the ``egauge_`` entity_id prefix for new installs.
+
+        ``has_entity_name=False`` makes the friendly name the bare register, but
+        also drops the device prefix HA would otherwise put in the entity_id.
+        Overriding this property (the value HA reads at registration) restores
+        ``sensor.egauge_<register>``. No effect on already-registered entities —
+        their entity_id is sticky (registry keyed by unique_id).
+        """
+        return f"egauge_{slugify(self._register)}"
+
 
 class EgaugeEnergyCounterSensor(EgaugeProEntity, SensorEntity):
     """Lifetime cumulative energy for a power register (kWh).
@@ -131,3 +144,8 @@ class EgaugeEnergyCounterSensor(EgaugeProEntity, SensorEntity):
     def available(self) -> bool:
         """Available once the register's counter is reporting."""
         return super().available and self._register in self.coordinator.data.counters
+
+    @property
+    def suggested_object_id(self) -> str | None:
+        """Keep the ``egauge_<register>_energy`` entity_id for new installs."""
+        return f"egauge_{slugify(self._register)}_energy"
