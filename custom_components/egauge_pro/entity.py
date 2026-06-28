@@ -15,7 +15,8 @@ class EgaugeProEntity(CoordinatorEntity[EgaugeProCoordinator]):
     # False so friendly names are the bare register ("Jacuzzi"), not the
     # device-prefixed "eGauge Jacuzzi". entity_ids are unaffected for
     # already-registered entities (registry is keyed by unique_id); each sensor
-    # sets ``suggested_object_id`` to keep the ``egauge_`` prefix on NEW installs.
+    # OVERRIDES the ``suggested_object_id`` property to keep the ``egauge_``
+    # entity_id prefix on NEW installs.
     _attr_has_entity_name = False
 
     def __init__(self, coordinator: EgaugeProCoordinator) -> None:
