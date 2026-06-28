@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from xml.etree import ElementTree
 
+import httpx
 from egauge_async.exceptions import EgaugeException
 from egauge_async.json.client import EgaugeJsonClient
 from egauge_async.json.models import RegisterInfo
@@ -52,14 +54,25 @@ class EgaugeProCoordinator(DataUpdateCoordinator[EgaugeData]):
             update_interval=SCAN_INTERVAL,
             config_entry=config_entry,
         )
+        verify_ssl = config_entry.data.get(CONF_VERIFY_SSL, True)
+        self._httpx = get_async_client(hass, verify_ssl=verify_ssl)
         self.client = EgaugeJsonClient(
             host=config_entry.data[CONF_HOST],
             username=config_entry.data[CONF_USERNAME],
             password=config_entry.data[CONF_PASSWORD],
-            client=get_async_client(
-                hass, verify_ssl=config_entry.data.get(CONF_VERIFY_SSL, True)
-            ),
+            client=self._httpx,
             use_ssl=config_entry.data.get(CONF_USE_SSL, True),
+        )
+        # Cumulative counters come from the legacy XML endpoint, not the JSON
+        # /api: the JSON counters are unreliable for aggregated / Generation-
+        # subtype registers on a multi-eGauge aggregate (sign-flipped and
+        # mis-scaled vs the authoritative XML). The XML cumulative is clean.
+        scheme = "https" if config_entry.data.get(CONF_USE_SSL, True) else "http"
+        self._xml_counter_url = (
+            f"{scheme}://{config_entry.data[CONF_HOST]}/cgi-bin/egauge?inst&tot"
+        )
+        self._xml_auth = httpx.DigestAuth(
+            config_entry.data[CONF_USERNAME], config_entry.data[CONF_PASSWORD]
         )
         self.register_info: dict[str, RegisterInfo] = {}
 
@@ -71,12 +84,32 @@ class EgaugeProCoordinator(DataUpdateCoordinator[EgaugeData]):
         except (EgaugeException, HTTPError) as err:
             raise ConfigEntryNotReady(f"Cannot reach eGauge: {err}") from err
 
+    async def _async_xml_counters(self) -> dict[str, float]:
+        """Cumulative register counters (signed W*s) from the XML endpoint.
+
+        The eGauge XML ``/cgi-bin/egauge?inst&tot`` returns one ``<r n=… t=…>``
+        per register with the cumulative value in ``<v>``. This is authoritative
+        (clean sign + magnitude) where the JSON ``/api`` counters are not for
+        aggregated registers.
+        """
+        response = await self._httpx.get(self._xml_counter_url, auth=self._xml_auth)
+        response.raise_for_status()
+        root = ElementTree.fromstring(response.text)
+        counters: dict[str, float] = {}
+        for register in root.findall("r"):
+            name = register.get("n")
+            value = register.find("v")
+            if name is None or value is None or value.text is None:
+                continue
+            counters[name] = float(value.text)
+        return counters
+
     async def _async_update_data(self) -> EgaugeData:
-        """Fetch instantaneous values + cumulative counters."""
+        """Fetch instantaneous values (JSON) + cumulative counters (XML)."""
         try:
             measurements = await self.client.get_current_measurements()
-            counters = await self.client.get_current_counters()
-        except (EgaugeException, HTTPError) as err:
+            counters = await self._async_xml_counters()
+        except (EgaugeException, HTTPError, ElementTree.ParseError) as err:
             raise UpdateFailed(f"Error fetching eGauge data: {err}") from err
         return EgaugeData(
             register_info=self.register_info,
