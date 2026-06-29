@@ -250,15 +250,27 @@ class EgaugeProOptionsFlow(OptionsFlow):
         Uses the coordinator's latest raw measurements (before inversion). Falls back
         to the current set when no data has been polled yet. Additive — never drops a
         register the user already inverted. Returned in native register order.
+
+        EXCLUDES net/bidirectional registers (those the user listed in the
+        energy-counter exclude set): they legitimately swing sign, so a transient
+        negative reading — e.g. solar power at night — must NOT auto-suggest
+        inverting them (that would flip their normal-direction output negative).
+        A manual invert of such a register is still preserved.
         """
         coordinator = self.config_entry.runtime_data
         current = set(self.config_entry.options.get(CONF_INVERT_SENSORS, []))
+        bidirectional = set(
+            self.config_entry.options.get(CONF_SKIP_ENERGY_COUNTERS, [])
+        )
         chosen = set(current)
         if coordinator.data is not None:
             info = coordinator.register_info
             chosen |= {
                 name
                 for name, value in coordinator.data.measurements.items()
-                if value < 0 and name in info and info[name].type is RegisterType.POWER
+                if value < 0
+                and name not in bidirectional
+                and name in info
+                and info[name].type is RegisterType.POWER
             }
         return [name for name in coordinator.register_info if name in chosen]
