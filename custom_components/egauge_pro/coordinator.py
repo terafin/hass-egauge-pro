@@ -8,7 +8,7 @@ from xml.etree import ElementTree
 import httpx
 from egauge_async.exceptions import EgaugeException
 from egauge_async.json.client import EgaugeJsonClient
-from egauge_async.json.models import RegisterInfo
+from egauge_async.json.models import RegisterInfo, RegisterType
 from httpx import HTTPError
 
 from homeassistant.config_entries import ConfigEntry
@@ -27,6 +27,7 @@ from .const import (
     LOGGER,
     SCAN_INTERVAL,
 )
+from .virtual import VirtualTerms, compute_virtual, parse_virtual_defs
 
 type EgaugeProConfigEntry = ConfigEntry[EgaugeProCoordinator]
 
@@ -75,14 +76,58 @@ class EgaugeProCoordinator(DataUpdateCoordinator[EgaugeData]):
             config_entry.data[CONF_USERNAME], config_entry.data[CONF_PASSWORD]
         )
         self.register_info: dict[str, RegisterInfo] = {}
+        # Virtual (formula) registers: name -> [(sign, physical-register), ...].
+        # Populated from GET /api/config in setup; evaluated each cycle over the
+        # physical values we already poll. Empty if the meter has none / the
+        # config call is unavailable.
+        self._virtual_defs: dict[str, VirtualTerms] = {}
 
     async def _async_setup(self) -> None:
-        """One-time setup: serial number + register metadata."""
+        """One-time setup: serial number + register metadata + virtual formulas."""
         try:
             self.serial_number = await self.client.get_device_serial_number()
             self.register_info = await self.client.get_register_info()
         except (EgaugeException, HTTPError) as err:
             raise ConfigEntryNotReady(f"Cannot reach eGauge: {err}") from err
+        await self._async_load_virtuals()
+
+    async def _async_load_virtuals(self) -> None:
+        """Load virtual-register formulas from the WebAPI ``GET /api/config``.
+
+        Best-effort: a meter without virtuals, older firmware, or a missing
+        ``view_settings`` right must NOT block setup — on any failure we log and
+        continue with physical registers only. Each parsed virtual is added to
+        ``register_info`` as a POWER register (synthetic idx, no ``did``) so the
+        sensor platform creates an instantaneous sensor + energy counter for it,
+        and it flows through the existing invert / skip-counter options exactly
+        like a physical register.
+        """
+        try:
+            url = f"{self.client.base_url}/config"
+            response = await self.client._get_with_auth(url)  # noqa: SLF001
+            response.raise_for_status()
+            defs = parse_virtual_defs(response.json())
+        except (EgaugeException, HTTPError, ValueError) as err:
+            LOGGER.warning(
+                "Could not load eGauge virtual registers (continuing with "
+                "physical only): %s",
+                err,
+            )
+            return
+
+        self._virtual_defs = defs
+        for offset, name in enumerate(defs):
+            # Don't shadow a real physical register if the names ever collide.
+            if name in self.register_info:
+                continue
+            self.register_info[name] = RegisterInfo(
+                name=name,
+                type=RegisterType.POWER,
+                idx=-1 - offset,
+                did=None,
+            )
+        if defs:
+            LOGGER.debug("Loaded %d eGauge virtual register(s): %s", len(defs), ", ".join(defs))
 
     async def _async_xml_counters(self) -> dict[str, float]:
         """Cumulative register counters (signed W*s) from the XML endpoint.
@@ -111,8 +156,28 @@ class EgaugeProCoordinator(DataUpdateCoordinator[EgaugeData]):
             counters = await self._async_xml_counters()
         except (EgaugeException, HTTPError, ElementTree.ParseError) as err:
             raise UpdateFailed(f"Error fetching eGauge data: {err}") from err
+        self._apply_virtuals(measurements, counters)
         return EgaugeData(
             register_info=self.register_info,
             measurements=measurements,
             counters=counters,
         )
+
+    def _apply_virtuals(
+        self, measurements: dict[str, float], counters: dict[str, float]
+    ) -> None:
+        """Evaluate each virtual formula over the polled physical values.
+
+        Computes the virtual's instantaneous value from ``measurements`` and its
+        cumulative counter from ``counters`` (both in meter-native sign — sign is
+        handled per-register by the invert option, same as physical registers).
+        A virtual whose components aren't all present that cycle is skipped (no
+        partial sum). Mutates the passed dicts in place.
+        """
+        for name, terms in self._virtual_defs.items():
+            value = compute_virtual(terms, measurements)
+            if value is not None:
+                measurements[name] = value
+            counter = compute_virtual(terms, counters)
+            if counter is not None:
+                counters[name] = counter
