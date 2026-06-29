@@ -73,13 +73,15 @@ unique_id under the `egauge_pro` domain), a non-canonical entity_id is renamed t
 an existing entity), preserving state history (rename is keyed by unique_id).
 Idempotent; a no-op once everything is canonical.
 
-> ⚠️ **Duplicate / orphaned entities.** If the old integration's entities weren't
-> fully removed at cutover, a leftover (e.g. `sensor.garage_egauge_egauge_air_conditioning_energy`)
-> can still hold the canonical id — the rename then **skips with a warning** rather
-> than clobber it. Remove the stale entity (Developer Tools → registry, or delete the
-> old integration's leftovers) and restart; the canonical id frees up and the rename
-> completes. This is also the cleanup for any duplicate `..._energy` pair reading the
-> same value.
+> ⚠️ **Canonical id already taken (duplicate / template / orphan).** If something
+> else already holds the canonical id — a leftover entity from the old integration,
+> **or an intentional operator-defined `template`/helper sensor** (e.g. a hand-rolled
+> `sensor.egauge_air_conditioning_energy`) — the rename **skips with a warning** rather
+> than clobber it, and our counter stays on its current (e.g. `garage_*`) id. It still
+> works there; only the id is non-canonical. Operator's call: **retire or rename** the
+> other entity if you want our counter to take the canonical id (egauge_pro will never
+> delete a foreign/template entity in code), then restart. This is also how any
+> duplicate `..._energy` pair reading the same value is resolved.
 
 ## Why entity_ids survive
 

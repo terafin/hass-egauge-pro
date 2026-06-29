@@ -71,8 +71,9 @@ def _canonicalize_entity_ids(
                 continue
             if registry.async_get(desired) is not None:
                 LOGGER.warning(
-                    "eGauge: cannot rename %s -> %s (target already exists; "
-                    "remove the stale/duplicate entity to canonicalize)",
+                    "eGauge: cannot rename %s -> %s (the canonical id is held by "
+                    "another entity, e.g. a template/helper; retire or rename it "
+                    "if you want this counter to take that id)",
                     current,
                     desired,
                 )
