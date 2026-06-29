@@ -53,7 +53,7 @@
       },
       "auto_detect": {
         "title": "Auto-detected inverted registers",
-        "description": "Power registers currently reading negative are pre-selected (along with your existing choices). Review and confirm — adjust the chips as needed.",
+        "description": "Power registers currently reading negative are pre-selected (along with your existing choices), EXCLUDING net/bidirectional registers you've listed under \"exclude from energy counters\" — those legitimately swing sign (e.g. solar at night) and shouldn't be auto-inverted. Review and confirm — adjust the chips as needed.",
         "data": {
           "invert_sensors": "Inverted registers"
         }
