@@ -56,6 +56,33 @@ cycle sensor an automation still needs.
 > The old `egauge` → `egauge_pro` cutover below is unchanged for the instantaneous
 > sensors; the bucket rows in its snapshot/verify steps no longer apply under v0.2.0.
 
+## v0.2.6: virtual-register entity_id auto-canonicalization
+
+The virtual/formula registers added in v0.2.5 (`Air Conditioning`, `Kitchen &
+Cooking`, `Washer & Dryer`, …) can land on a **stale entity_id** on cutover: the
+old `egauge` integration used the same `serial-register` unique_id scheme, so HA's
+registry still holds an entry for that unique_id with the old integration's
+device-prefixed entity_id (e.g. `sensor.garage_egauge_egauge_air_conditioning`), and
+HA reuses it instead of `sensor.egauge_air_conditioning` (`suggested_object_id` only
+applies to a *fresh* registration). Physicals carried over in an earlier run were
+unaffected; the new virtuals were not.
+
+v0.2.6 **auto-canonicalizes** on setup: for each of our registers (matched by
+unique_id under the `egauge_pro` domain), a non-canonical entity_id is renamed to
+`egauge_<slug>[_energy]` — **only when that canonical id is free** (never clobbering
+an existing entity), preserving state history (rename is keyed by unique_id).
+Idempotent; a no-op once everything is canonical.
+
+> ⚠️ **Canonical id already taken (duplicate / template / orphan).** If something
+> else already holds the canonical id — a leftover entity from the old integration,
+> **or an intentional operator-defined `template`/helper sensor** (e.g. a hand-rolled
+> `sensor.egauge_air_conditioning_energy`) — the rename **skips with a warning** rather
+> than clobber it, and our counter stays on its current (e.g. `garage_*`) id. It still
+> works there; only the id is non-canonical. Operator's call: **retire or rename** the
+> other entity if you want our counter to take the canonical id (egauge_pro will never
+> delete a foreign/template entity in code), then restart. This is also how any
+> duplicate `..._energy` pair reading the same value is resolved.
+
 ## Why entity_ids survive
 
 Entity_ids are derived from the **device name** (`eGauge`) + the **register name**,
