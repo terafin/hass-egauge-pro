@@ -27,10 +27,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: EgaugeProConfigEntry) ->
     coordinator = EgaugeProCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
     _canonicalize_entity_ids(hass, coordinator)
-    _remove_legacy_device(hass, entry)
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    return True
+
+
+async def async_migrate_entry(
+    hass: HomeAssistant, entry: EgaugeProConfigEntry
+) -> bool:
+    """Migrate a config entry written by <= 0.2.6.
+
+    Version 1 entries carry the meter as a device. Version 2 detaches its
+    entities and drops that device. Running this once, as a migration, keeps the
+    removal off the setup path: a future release that deliberately attaches
+    entities to a device is not silently undone by every reload.
+    """
+    if entry.version > 2:
+        return False
+    if entry.version == 1:
+        _remove_legacy_device(hass, entry)
+        hass.config_entries.async_update_entry(entry, version=2)
     return True
 
 
