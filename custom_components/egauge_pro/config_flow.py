@@ -51,6 +51,8 @@ STEP_USER = vol.Schema(
 class EgaugeProConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the eGauge Pro config flow."""
 
+    VERSION = 2
+
     async def _async_validate(
         self, user_input: dict[str, Any]
     ) -> tuple[str | None, str]:

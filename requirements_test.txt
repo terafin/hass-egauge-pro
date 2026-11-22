@@ -1,0 +1,7 @@
+# The tests run against a real Home Assistant, so the harness pins one:
+# pytest-homeassistant-custom-component decides the HA version.
+#   uv venv --python 3.13 .venv
+#   uv pip install --python .venv --prerelease=allow -r requirements_test.txt
+#   .venv/bin/python -m pytest tests/ -q
+pytest-homeassistant-custom-component==0.13.316
+egauge-async==0.4.0

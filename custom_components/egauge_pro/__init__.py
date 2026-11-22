@@ -13,7 +13,7 @@ from egauge_async.json.models import RegisterType
 
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.util import slugify
 
 from .const import DOMAIN, LOGGER
@@ -31,6 +31,56 @@ async def async_setup_entry(hass: HomeAssistant, entry: EgaugeProConfigEntry) ->
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
+
+
+async def async_migrate_entry(
+    hass: HomeAssistant, entry: EgaugeProConfigEntry
+) -> bool:
+    """Migrate a config entry written by <= 0.2.6.
+
+    Version 1 entries carry the meter as a device. Version 2 detaches its
+    entities and drops that device. Running this once, as a migration, keeps the
+    removal off the setup path: a future release that deliberately attaches
+    entities to a device is not silently undone by every reload.
+    """
+    if entry.version > 2:
+        return False
+    if entry.version == 1:
+        _remove_legacy_device(hass, entry)
+        hass.config_entries.async_update_entry(entry, version=2)
+    return True
+
+
+@callback
+def _remove_legacy_device(
+    hass: HomeAssistant, entry: EgaugeProConfigEntry
+) -> None:
+    """Drop the meter's device entry on installs upgraded from <= 0.2.6.
+
+    Up to 0.2.6 every entity declared ``device_info``, so Home Assistant
+    prefixed each one's displayed name with the device name — every Energy
+    dashboard label read "eGauge Pool", "eGauge Jacuzzi", and so on. Entities no
+    longer declare a device; without this the old device row would sit orphaned
+    in the registry with the config entry still pointing at it.
+
+    Entities are detached first, then the device is removed. Idempotent: on a
+    fresh install there is no device and this is a no-op.
+    """
+    dev_reg = dr.async_get(hass)
+    ent_reg = er.async_get(hass)
+    device = next(
+        (d for d in dev_reg.devices.values() if entry.entry_id in d.config_entries),
+        None,
+    )
+    if device is None:
+        return
+    for entity in er.async_entries_for_device(ent_reg, device.id):
+        ent_reg.async_update_entity(entity.entity_id, device_id=None)
+    dev_reg.async_remove_device(device.id)
+    LOGGER.info(
+        "eGauge: removed legacy device %s so entity names are not device-prefixed",
+        device.name,
+    )
 
 
 @callback
