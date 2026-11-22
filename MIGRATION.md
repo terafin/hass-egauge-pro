@@ -16,9 +16,17 @@ Instead, each **power** register exposes one **lifetime cumulative energy counte
 | Instantaneous power (unchanged) | `sensor.egauge_<register>` | `power` / `measurement` / `W` |
 
 `<register>` is the HA-slugified register name (lowercase; spaces and non-alphanumerics
-→ `_`), matching how the instantaneous sensors already slug. Configured sign inversion
-is applied to the counter too (it flips a generation register's negative-counting total
-into a positive, increasing one). Only POWER registers get a counter.
+→ `_`), matching how the instantaneous sensors already slug. Only POWER registers get a
+counter.
+
+The meter's raw counter is the running integral of the register's signed power, so it
+can sit on either side of zero and count either way. From v0.2.8 each counter takes
+every step of the raw counter in the register's direction of flow — the same invert
+flag that makes its power read positive — and adds only forward steps, so the value
+never decreases. It continues from the value the sensor last reported, and a restart
+counts the energy used while Home Assistant was down. (v0.2.1–v0.2.7 reported the
+counter's magnitude instead, which ran backwards for any register whose counter sat on
+the far side of zero from its flow — `House` among them.)
 
 ### Directional Energy-dashboard flows
 

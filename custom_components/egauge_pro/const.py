@@ -33,9 +33,6 @@ CONF_SKIP_ENERGY_COUNTERS = "skip_energy_counters"
 # Update cadence
 SCAN_INTERVAL = timedelta(seconds=30)  # instantaneous power + cumulative counters
 
-# Watt-seconds -> kWh
-WS_TO_KWH = 1.0 / 3_600_000.0
-
 # Instantaneous register type -> HA device class / unit. POWER is by far the
 # common case; the rest are supported so the integration is general.
 INSTANTANEOUS_DEVICE_CLASS: dict[RegisterType, SensorDeviceClass] = {
